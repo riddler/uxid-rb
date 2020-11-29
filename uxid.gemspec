@@ -9,7 +9,7 @@ Gem::Specification.new do |spec|
 
   spec.summary       = "Generates IDs like: cus_01EPEY1JMK and txn_01EPEY2P06TR1RTV07 (similar to Stripe identifiers)."
   spec.description   = spec.summary
-  spec.homepage      = "https://github.com/riddler/uxid/tree/master/impl/rb"
+  spec.homepage      = "https://github.com/riddler/uxid-rb"
   spec.license       = "MIT"
   spec.required_ruby_version = Gem::Requirement.new ">= 2.3.0"
 
