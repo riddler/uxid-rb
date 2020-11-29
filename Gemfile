@@ -3,6 +3,8 @@ source "https://rubygems.org"
 # Specify your gem's dependencies in uxid.gemspec
 gemspec
 
+gem "danger"
+gem "danger-commit_lint"
 gem "minitest", "~> 5.0"
 gem "minitest-focus"
 gem "minitest-reporters"
