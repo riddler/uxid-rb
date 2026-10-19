@@ -35,7 +35,7 @@ module UXID
 
     # The digest's first count x 5 bits, as an Integer.
     def hash_bits(request)
-      input = [utf8_bytes(:prefix, request.prefix.to_s), utf8_bytes(:from, request.from), request.count]
+      input = [hashed_bytes(request.prefix.to_s), hashed_bytes(request.from), request.count]
       digest = Digest::SHA256.digest(input.pack("a*xa*xC"))
       digest.unpack1("H*").to_i(16) >> ((digest.bytesize * 8) - (request.count * 5))
     end
@@ -61,16 +61,19 @@ module UXID
                       "got: #{rand.bytesize}")
     end
 
-    # The string's UTF-8 bytes, transcoded from the string's own encoding. A
-    # string that is not valid in its encoding, or has no UTF-8 form (binary
-    # bytes above 0x7f), is refused.
-    def utf8_bytes(key, string)
-      utf8 = string.encode(Encoding::UTF_8)
-      return utf8.b if utf8.valid_encoding?
-
-      raise ArgumentError, "#{key}: must be valid text; this #{string.encoding} string has invalid bytes"
+    # The bytes hashed for a string. Valid text in an encoding other than
+    # UTF-8 is transcoded to UTF-8 first, so the same text gives the same
+    # bytes whatever its encoding. A binary (ASCII-8BIT) string, a string
+    # that is not valid in its own encoding, and one Ruby cannot transcode
+    # are hashed as their own bytes, as the wire format's "the input
+    # string's bytes" reads.
+    def hashed_bytes(string)
+      # A UTF-8 string, invalid or not, is returned unchanged; binary bytes
+      # above 0x7f, invalid bytes in another encoding and an encoding with
+      # no converter raise, and the string's own bytes are hashed.
+      string.encode(Encoding::UTF_8).b
     rescue EncodingError
-      raise ArgumentError, "#{key}: must be text with a UTF-8 form; this #{string.encoding} string has none"
+      string.b
     end
 
     # Standard time: 48 bits in 10 characters, the first holding 3 bits.

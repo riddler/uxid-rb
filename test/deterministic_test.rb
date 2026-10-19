@@ -17,7 +17,7 @@ class DeterministicTest < Minitest::Test
 
   # The hash input built here, field by field, as the spec lays it out.
   def spec_body(prefix, from, count)
-    input = "#{prefix}\x00#{from}\x00".b + count.chr.b
+    input = [prefix.b, from.b, count.chr].join("\x00".b)
     bits = Digest::SHA256.digest(input).unpack1("B*")[0, count * 5]
     "z#{bits.scan(/.{5}/).map { |group| "0123456789abcdefghjkmnpqrstvwxyz"[group.to_i(2)] }.join}"
   end
@@ -56,14 +56,41 @@ class DeterministicTest < Minitest::Test
     assert_equal UXID.generate(from: "abc"), UXID.generate(from: "abc".b)
   end
 
-  # Sabotage: hashing invalid or binary bytes as given turns this red.
-  def test_a_from_with_no_utf8_form_is_refused
-    ["caf\xC3".dup.force_encoding(Encoding::UTF_8), "caf\xE9".b].each do |from|
-      error = assert_raises(ArgumentError, from.inspect) { UXID.generate(prefix: "cus", from: from) }
+  # What UXID.generate returns, or the class of what it raises, so that a
+  # refusal reads as an assertion failure.
+  def generated(**)
+    UXID.generate(**)
+  rescue ArgumentError, EncodingError => e
+    e.class
+  end
 
-      refute_kind_of UXID::Error, error
-      assert_match(/\Afrom: /, error.message)
+  # Sabotage: transcoding with replacement instead of hashing string.b turns this red.
+  def test_a_binary_from_hashes_its_own_bytes
+    uuid = hex("0f1e2d3c4b5a69788796a5b4c3d2e1f0")
+
+    assert_equal "usr_#{spec_body("usr", uuid, 17)}", generated(prefix: "usr", from: uuid, size: :m)
+    assert_equal "usr_#{spec_body("usr", "caf\xE9".b, 17)}", generated(prefix: "usr", from: "caf\xE9".b, size: :m)
+  end
+
+  # Sabotage: transcoding with replacement instead of hashing string.b turns this red.
+  def test_a_binary_prefix_hashes_its_own_bytes
+    prefix = "u\xE9r".b
+
+    assert_equal "#{prefix}_#{spec_body(prefix, "a", 17)}", generated(prefix: prefix, from: "a", size: :m)
+  end
+
+  # Sabotage: scrubbing invalid bytes before hashing turns this red.
+  def test_a_from_invalid_in_its_encoding_hashes_its_own_bytes
+    ["caf\xC3".dup.force_encoding(Encoding::UTF_8), "caf\xA4".dup.force_encoding(Encoding::EUC_JP)].each do |from|
+      assert_equal "cus_#{spec_body("cus", from, 17)}", generated(prefix: "cus", from: from, size: :m), from.encoding
     end
+  end
+
+  # Sabotage: rescuing only conversion errors, so a missing converter raises, turns this red.
+  def test_a_from_ruby_cannot_transcode_hashes_its_own_bytes
+    utf7 = "a+AGEA-".dup.force_encoding(Encoding::UTF_7)
+
+    assert_equal "cus_#{spec_body("cus", utf7, 17)}", generated(prefix: "cus", from: utf7, size: :m)
   end
 
   # Sabotage: returning a time body when rand: is given turns this red.

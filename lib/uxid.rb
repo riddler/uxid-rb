@@ -49,9 +49,11 @@ module UXID
   #   bytes come from: any object whose call(count) returns a String of count
   #   bytes; nil is SecureRandom.random_bytes. Not called when :rand is given
   # @option options [String, nil] :from (nil) the string a deterministic body
-  #   is the hash of, read as its UTF-8 bytes (a String in another encoding
-  #   is transcoded; one with invalid bytes, or binary bytes above 0x7f, is
-  #   refused). The prefix is hashed the same way. The body has the size's
+  #   is the hash of, read as its bytes: valid text in an encoding other
+  #   than UTF-8 is transcoded to UTF-8 first; a binary (ASCII-8BIT) String,
+  #   one not valid in its own encoding, and one Ruby cannot transcode are
+  #   hashed as their own bytes, so a raw-byte key such as a 16-byte UUID
+  #   works. The prefix is hashed the same way. The body has the size's
   #   standard length; :time, :compact_time, :rand_size and :byte_source do
   #   not apply to it and are not read
   # @return [String] the id
