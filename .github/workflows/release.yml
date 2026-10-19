@@ -1,0 +1,177 @@
+name: Release
+
+# Publishes this gem to rubygems.org when a version tag is pushed, and only
+# when four things hold at the tagged commit: it is on the default branch,
+# the tag names the version lib/uxid/version.rb states there (UXID::VERSION),
+# rubygems.org does not already show that version, and the full quality gate
+# is green there. The first three are checked before anything is built.
+# Nothing else triggers it - no branch push, no pull request, no manual
+# dispatch. A failed run publishes nothing and the tag stays where it is. The
+# one manual act is re-running a run whose publish step failed on a registry
+# or network error, from the run's page in the Actions tab.
+#
+# rubygems.org trusted publishing: the publish step exchanges this run's
+# OIDC identity for a short-lived rubygems.org credential, so no API key
+# exists anywhere - not in this file, not in the repository's secrets.
+# rubygems.org must list this repository and this workflow file as the gem's
+# trusted publisher before the first tag is pushed.
+#
+# This file records the publish decision for this repository, which keeps no
+# decision records (CLAUDE.md, "Agent authority in this repo": the "Release
+# preps" paragraph and the paragraph after it, which says where a release
+# decision is recorded). This workflow is the only publisher: it publishes on
+# the push of the tag that names a merged release prep. An agent or a session
+# never runs `gem push`, and a failed run is re-run from its Actions page,
+# never worked round by a local publish.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+# contents: read for the checkout and the tag fetch; id-token: write lets the
+# publish step ask GitHub for the OIDC token rubygems.org trusts. Every other
+# permission is none. The tag already exists when this runs, and nothing here
+# creates or pushes one.
+permissions:
+  contents: read
+  id-token: write
+
+# One run per tag, and a run in progress is never cancelled: a publish cut
+# off part way is worse than one that finishes.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Verify, gate and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # Full history: the ancestry check below walks it.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # The default branch is read from the push event itself, never written
+      # here, so a renamed default branch needs no edit to this file.
+      - name: Fetch the default branch
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          test -n "$DEFAULT_BRANCH" || { echo "::error::the push event names no default branch" >&2; exit 1; }
+          git fetch --no-tags origin "+refs/heads/${DEFAULT_BRANCH}:refs/remotes/origin/${DEFAULT_BRANCH}"
+
+      - name: Check the tagged commit is on the default branch
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          commit="$(git rev-parse 'HEAD^{commit}')"
+          if ! git merge-base --is-ancestor "$commit" "origin/${DEFAULT_BRANCH}"; then
+            echo "::error::${GITHUB_REF_NAME} is on ${commit}, which is not on ${DEFAULT_BRANCH}; nothing is published" >&2
+            exit 1
+          fi
+          echo "${GITHUB_REF_NAME} is on ${commit}, which is on ${DEFAULT_BRANCH}"
+
+      - name: Check the tag names UXID::VERSION
+        run: |
+          set -euo pipefail
+          tag_version="${GITHUB_REF_NAME#v}"
+          file_version="$(sed -n 's/^ *VERSION *= *"\([^"]*\)".*$/\1/p' lib/uxid/version.rb | head -1)"
+          test -n "$file_version" || { echo "::error::no VERSION in lib/uxid/version.rb at the tagged commit" >&2; exit 1; }
+          if [ "$tag_version" != "$file_version" ]; then
+            echo "::error::${GITHUB_REF_NAME} names ${tag_version} but lib/uxid/version.rb at the tagged commit says ${file_version}; nothing is published" >&2
+            exit 1
+          fi
+          echo "${GITHUB_REF_NAME} matches UXID::VERSION ${file_version}"
+
+      # A version rubygems.org already shows is reported, never published
+      # again (rubygems.org would refuse a reused version anyway). This also
+      # answers a re-run of a run that did publish.
+      - name: Check rubygems.org does not already show this version
+        env:
+          GEM_NAME: uxid
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          status="$(curl -sS -o /dev/null -w '%{http_code}' "https://rubygems.org/api/v2/rubygems/${GEM_NAME}/versions/${version}.json")"
+          case "$status" in
+            404) echo "${GEM_NAME} ${version} is not on rubygems.org yet" ;;
+            200) echo "::error::${GEM_NAME} ${version} is already on rubygems.org; reported, not published again" >&2; exit 1 ;;
+            *) echo "::error::rubygems.org answered ${status} for ${GEM_NAME} ${version}; nothing is published" >&2; exit 1 ;;
+          esac
+
+      # --- the toolchain and the full quality gate, exactly as ci.yml's gate
+      # job runs them.
+
+      # The Ruby comes from mise.toml (setup-ruby reads it when no
+      # ruby-version is given); Bundler is the version Gemfile.lock's BUNDLED
+      # WITH names, and the gems install from the lock in deployment mode.
+      - uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Check the Ruby is the one mise.toml pins
+        run: |
+          set -euo pipefail
+          pinned="$(sed -n 's/^ruby *= *"\([^"]*\)".*$/\1/p' mise.toml | head -1)"
+          test -n "$pinned" || { echo "::error::no ruby version in mise.toml" >&2; exit 1; }
+          running="$(ruby -e 'print RUBY_VERSION')"
+          if [ "$pinned" != "$running" ]; then
+            echo "::error::mise.toml pins ruby ${pinned} but this job runs ${running}" >&2
+            exit 1
+          fi
+          echo "ruby ${running}, as mise.toml pins"
+
+      # The command is read out of .claude/wurk.json (gate.full), the gate an
+      # agent must have green before committing, without its leading
+      # `mise exec --`: setup-ruby has already put the pinned Ruby on the
+      # PATH. It is read and executed inside the step rather than interpolated
+      # into `run:`, so a repository file never reaches the shell as
+      # expression text.
+      - name: Full quality gate
+        run: |
+          set -euo pipefail
+          mapfile -t cmd < <(jq -er '.gate.full[]' .claude/wurk.json)
+          test "${#cmd[@]}" -gt 0 || { echo "::error::gate.full is empty" >&2; exit 1; }
+          if [ "${#cmd[@]}" -ge 3 ] && [ "${cmd[0]}" = "mise" ] && [ "${cmd[1]}" = "exec" ] && [ "${cmd[2]}" = "--" ]; then
+            cmd=("${cmd[@]:3}")
+          fi
+          echo "gate command (.claude/wurk.json gate.full, without mise exec --): ${cmd[*]}"
+          "${cmd[@]}"
+
+      # --- end of the gate.
+
+      # The gate's coverage report lands under reports/, which .gitignore
+      # covers; the publish refuses a checkout with uncommitted changes to
+      # tracked files, so a gate that rewrote one stops here, before the
+      # publish, rather than shipping it.
+      - name: Check the gate left the checkout clean
+        run: |
+          set -euo pipefail
+          if ! git diff --quiet || ! git diff --cached --quiet; then
+            git status --short
+            echo "::error::the gate changed tracked files; nothing is published" >&2
+            exit 1
+          fi
+
+      # No API key: release-gem configures the trusted-publishing credential
+      # from this run's OIDC token, then runs `bundle exec rake release`. The
+      # Rakefile's `release` task builds the gem into pkg/ and pushes it, and
+      # never creates or pushes a git tag; it refuses to run anywhere but in
+      # this workflow on the push of the tag naming UXID::VERSION. The action
+      # then waits until rubygems.org serves the pushed version.
+      - name: Publish to rubygems.org
+        uses: rubygems/release-gem@v1
+
+      - name: Print the published version's address
+        env:
+          GEM_NAME: uxid
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          echo "https://rubygems.org/gems/${GEM_NAME}/versions/${version}"
