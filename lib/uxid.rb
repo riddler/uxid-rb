@@ -4,6 +4,8 @@ require_relative "uxid/version"
 require_relative "uxid/error"
 require_relative "uxid/options"
 require_relative "uxid/encoder"
+require_relative "uxid/decoded"
+require_relative "uxid/decoder"
 
 # Prefixed, K-sortable identifiers, wire-compatible with the Elixir
 # reference implementation of uxid.
@@ -74,5 +76,86 @@ module UXID
   #   # => "cus_zt9vnyfd85bff0"
   def self.generate(**options)
     Encoder.generate(Options.resolve(options))
+  end
+
+  # Decodes an id: its prefix, its size and time form, whether it is
+  # deterministic, and its time, as uxid-ex's wire-format spec reads them.
+  # The random field is not read back.
+  #
+  # The body is everything after the last delimiter and the prefix
+  # everything before it; an id with no delimiter is a body with no prefix.
+  # The body length in bytes gives the size and the time form. The lengths
+  # 10 and 18 are read as standard xs and standard m: a compact xs or compact
+  # m id decodes to its size but not its time. A body starting with z or Z
+  # is deterministic and has no time. A compact body carries the low 40 bits
+  # of its time; the rest come from the decoder's clock, and a result more
+  # than one day ahead of the clock is taken from the 2**40 ms window before.
+  #
+  # Malformed input never raises: a String the format refuses gives an
+  # Invalid whose reason is the first rule it fails, in this order: :empty
+  # (an empty body: an empty string, or one ending in the delimiter),
+  # :invalid_length (a body length in bytes not in the length table),
+  # :invalid_character (a body byte outside the alphabet in either case).
+  # A value that is not a String has no alphabet characters and gives
+  # :invalid_character. A String in any encoding, binary or not valid in its
+  # own encoding included, is read as its bytes.
+  #
+  # @param id [Object] the id to read
+  # @param delimiter [String] ("_") the non-empty string between prefix and
+  #   body; it must be the one the id was generated with
+  # @param now [Integer, Time, nil] (nil) the decoder's clock, as
+  #   milliseconds since the Unix epoch or a Time, read only for a compact
+  #   time; nil reads the system clock
+  # @return [UXID::Decoded, UXID::Invalid] both answer valid?, true for a
+  #   Decoded and false for an Invalid
+  # @raise [ArgumentError] for a delimiter that is not a non-empty String,
+  #   or a now that is not an Integer, a Time or nil
+  #
+  # @example
+  #   UXID.decode("usr_01hf7yat00")
+  #   # => #<data UXID::Decoded prefix="usr", size=:xs, compact=false, deterministic=false, time=1700000000000>
+  #   UXID.decode("cus_zt9vnyfd85bff0").deterministic? # => true
+  #   UXID.decode("usr_01hf7yat0").reason              # => :invalid_length
+  def self.decode(id, delimiter: "_", now: nil)
+    Decoder.decode(id, delimiter, now)
+  end
+
+  # Whether an id decodes (see UXID.decode) and, when :prefix is given, has
+  # exactly that prefix. Never raises on the id: anything UXID.decode
+  # refuses, a value that is not a String included, is false.
+  #
+  # @param id [Object] the id to check
+  # @param prefix [String, nil] (nil) the prefix the id must have; nil and
+  #   the empty string accept any prefix or none
+  # @param delimiter [String] ("_") the non-empty string between prefix and
+  #   body
+  # @return [Boolean]
+  # @raise [ArgumentError] for a delimiter that is not a non-empty String
+  #
+  # @example
+  #   UXID.valid?("cus_zt9vnyfd85bff0")                 # => true
+  #   UXID.valid?("cus_zt9vnyfd85bff0", prefix: "usr")  # => false
+  #   UXID.valid?("usr_01hu7yat00")                     # => false
+  def self.valid?(id, prefix: nil, delimiter: "_")
+    decoded = Decoder.decode(id, delimiter, nil)
+    decoded.valid? && (prefix.nil? || prefix.empty? || decoded.prefix == prefix)
+  end
+
+  # Whether an id decodes (see UXID.decode) to a deterministic body, one
+  # generated with :from. Never raises on the id: anything UXID.decode
+  # refuses, a value that is not a String included, is false.
+  #
+  # @param id [Object] the id to check
+  # @param delimiter [String] ("_") the non-empty string between prefix and
+  #   body
+  # @return [Boolean]
+  # @raise [ArgumentError] for a delimiter that is not a non-empty String
+  #
+  # @example
+  #   UXID.deterministic?("cus_zt9vnyfd85bff0") # => true
+  #   UXID.deterministic?("usr_01hf7yat00")     # => false
+  def self.deterministic?(id, delimiter: "_")
+    decoded = Decoder.decode(id, delimiter, nil)
+    decoded.valid? && decoded.deterministic?
   end
 end

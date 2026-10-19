@@ -1,0 +1,16 @@
+{"expected_error":"empty","id":"invalid/decode-empty-string","input":{"decode":""}}
+{"expected_error":"empty","id":"invalid/decode-ends-in-delimiter","input":{"decode":"usr_"}}
+{"expected_error":"empty","id":"invalid/decode-prefix-with-delimiter-ends-in-delimiter","input":{"decode":"a_b_"}}
+{"expected_error":"empty","id":"invalid/decode-delimiter-only","input":{"decode":"_"}}
+{"expected_error":"invalid_length","id":"invalid/decode-length-11","input":{"decode":"usr_01hf7yat000"}}
+{"expected_error":"invalid_length","id":"invalid/decode-length-25","input":{"decode":"usr_01hf7yat00000g40r40m30e20"}}
+{"expected_error":"invalid_length","id":"invalid/decode-length-27","input":{"decode":"usr_01hf7yat00000g40r40m30e2090"}}
+{"expected_error":"invalid_length","id":"invalid/decode-no-delimiter-short","input":{"decode":"usr"}}
+{"expected_error":"invalid_character","id":"invalid/decode-character-in-time","input":{"decode":"usr_01hu7yat00000g40r40m30e209"}}
+{"expected_error":"invalid_character","id":"invalid/decode-character-in-random","input":{"decode":"usr_01hf7yat00000g4lr40m30e209"}}
+{"expected_error":"invalid_character","id":"invalid/decode-upper-o-in-random","input":{"decode":"usr_01hf7yat00000g40r40mO0e209"}}
+{"expected_error":"invalid_character","id":"invalid/decode-hyphen-in-body","input":{"decode":"usr_01hf7yat00-00g40r40m30e209"}}
+{"expected_error":"invalid_character","id":"invalid/decode-character-in-deterministic","input":{"decode":"usr_zcvt7epac0t1ebcsjfyf7cwzi5"}}
+{"expected_error":"invalid_character","id":"invalid/decode-non-ascii-table-length","input":{"decode":"01hf7yat00000g40r40m30e2é"}}
+{"expected_error":"invalid_length","id":"invalid/decode-non-ascii-off-table-length","input":{"decode":"01hf7yat00000g40r40m30e20é"}}
+{"expected_error":"invalid_length","id":"invalid/decode-length-and-character","input":{"decode":"usr_01hf7yat00u"}}
