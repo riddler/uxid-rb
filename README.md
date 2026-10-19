@@ -29,7 +29,7 @@ and ordered, and a deterministic mode maps the same input to the same ID.
 Add `uxid` to your Gemfile:
 
 ```ruby
-gem "uxid"
+gem "uxid", "~> 1.0"
 ```
 
 And then execute:
