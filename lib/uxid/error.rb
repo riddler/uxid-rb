@@ -18,7 +18,9 @@ module UXID
   #   end
   class Error < ArgumentError
     # The refusal's name, one of :compact_time_out_of_range,
-    # :rand_width_mismatch, :rand_size_too_large and :rand_with_from.
+    # :rand_width_mismatch, :rand_size_too_large, :rand_with_from,
+    # :from_with_monotonic and :rand_with_monotonic (the last two from
+    # UXID::Monotonic).
     #
     # @return [Symbol]
     attr_reader :code
