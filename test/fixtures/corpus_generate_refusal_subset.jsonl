@@ -1,0 +1,6 @@
+{"expected_error":"compact_time_out_of_range","id":"invalid/generate-compact-time-at-guard","input":{"generate":{"compact":true,"prefix":"usr","rand":"010203","size":"s","time":2164663517184}}}
+{"expected_error":"compact_time_out_of_range","id":"invalid/generate-compact-time-at-guard-previous-window","input":{"generate":{"compact":true,"prefix":"usr","rand":"010203","size":"s","time":1065151889408}}}
+{"expected_error":"rand_width_mismatch","id":"invalid/generate-rand-too-wide","input":{"generate":{"prefix":"usr","rand":"010203","size":"s","time":1700000000000}}}
+{"expected_error":"rand_width_mismatch","id":"invalid/generate-rand-too-narrow","input":{"generate":{"prefix":"usr","rand":"010203040506070809","size":"xl","time":1700000000000}}}
+{"expected_error":"rand_width_mismatch","id":"invalid/generate-rand-on-xs-standard","input":{"generate":{"prefix":"usr","rand":"01","size":"xs","time":1700000000000}}}
+{"expected_error":"rand_size_too_large","id":"invalid/generate-rand-size-11","input":{"generate":{"prefix":"usr","rand_size":11,"size":"xl","time":1700000000000}}}
