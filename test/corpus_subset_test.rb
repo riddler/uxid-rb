@@ -5,7 +5,8 @@ require "json"
 
 # A hand-picked subset of the conformance corpus at uxid-ex v2.10.0, its lines
 # copied byte for byte from conformance/encode.json, conformance/invalid.json
-# and (every line of it) conformance/deterministic.json into test/fixtures/.
+# and (every line of each) conformance/deterministic.json and
+# conformance/decode.json into test/fixtures/.
 # The corpus runner, once the corpus is vendored under conformance/, runs
 # every case; these hold the generator to the cases until then.
 class CorpusSubsetTest < Minitest::Test
@@ -54,6 +55,30 @@ class CorpusSubsetTest < Minitest::Test
     end
   end
 
+  # A decoder clock inside the window every compact decode case holds for
+  # (the corpus README, "Compact times and the decoder's clock").
+  NOW = 1_700_000_000_000
+
+  # Sabotage: reading the first time character's 5 bits, not its low 3, turns the reads-as-standard cases red.
+  cases("corpus_decode_subset.jsonl").each do |kase|
+    define_method("test_#{kase["id"]}") do
+      decoded = UXID.decode(kase["input"], now: NOW)
+      actual = decoded.valid? &&
+               { "prefix" => decoded.prefix, "size" => decoded.size.to_s, "compact" => decoded.compact?,
+                 "deterministic" => decoded.deterministic?, "time" => decoded.time }
+
+      assert_equal kase["expected"], actual, kase["id"]
+    end
+  end
+
+  # Sabotage: checking the characters before the length turns invalid/decode-length-and-character red.
+  cases("corpus_decode_refusal_subset.jsonl").each do |kase|
+    define_method("test_#{kase["id"]}") do
+      assert_equal UXID::Invalid.new(reason: kase["expected_error"].to_sym), UXID.decode(kase["input"]["decode"]),
+                   kase["id"]
+    end
+  end
+
   def encode_inputs(key)
     self.class.cases("corpus_encode_subset.jsonl").to_set { |kase| kase["input"][key] }
   end
@@ -64,6 +89,13 @@ class CorpusSubsetTest < Minitest::Test
     assert_equal [false, true].to_set, encode_inputs("compact")
     assert_equal %w[lower upper].to_set, encode_inputs("case")
     assert_equal ["", "a_b", "cus", "usr", nil].to_set, encode_inputs("prefix")
+  end
+
+  # Sabotage: dropping the four empty-body lines from the decode refusal fixture turns this red.
+  def test_the_decode_refusal_subset_covers_every_reason
+    reasons = self.class.cases("corpus_decode_refusal_subset.jsonl").to_set { |kase| kase["expected_error"] }
+
+    assert_equal %w[empty invalid_character invalid_length].to_set, reasons
   end
 
   # Sabotage: dropping the rand_size line from the refusal fixture turns this red.
