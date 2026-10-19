@@ -6,6 +6,7 @@ require_relative "uxid/options"
 require_relative "uxid/encoder"
 require_relative "uxid/decoded"
 require_relative "uxid/decoder"
+require_relative "uxid/monotonic"
 
 # Prefixed, K-sortable identifiers, wire-compatible with the Elixir
 # reference implementation of uxid.
