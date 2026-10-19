@@ -80,8 +80,7 @@ operator has adopted verbatim that names automatic merges, with every
 condition that consent names met, the conductor's merge executes the
 operator's own authorization - the consent's text is what may be done and
 nothing more. (Adopted here at onboarding with the rest of this authority
-table, under a campaign consent the operator adopted on 2026-10-18 that names
-this table as the one that governs the repository once it merges.)
+table, ruled by the operator, 2026-10-18.)
 
 **Release preps.** The version bump and the tag of a release prep are the
 family norm, not a grant a campaign consent has to name. On a release bead
@@ -124,17 +123,21 @@ Also avoid `bd edit`, which opens `$EDITOR` and blocks. Use
 
 ## What this project is
 
-`uxid` for Ruby: prefixed, K-sortable, Stripe-style identifiers a person can
-read, copy and route back to their resource, wire-compatible with the Elixir
-reference `uxid` and checked against its conformance corpus. Generation
-(random, deterministic and monotonic), decoding and the validity checks; zero
-runtime dependencies; Ruby 3.2 or later.
+`uxid` for Ruby. Version 1.0.0, being written now, makes prefixed,
+K-sortable, Stripe-style identifiers a person can read, copy and route back
+to their resource, wire-compatible with the Elixir reference `uxid` and
+checked against its conformance corpus. It covers generation (random,
+deterministic and monotonic), decoding and the validity checks, with zero
+runtime dependencies, on Ruby 3.2 or later. The 0.2.x code on `main` (its
+`lib/`, `test/`, gemspec and gate) is being replaced by that rewrite; until
+it is, the sentences in this file about the 1.0.0 package, its corpus and
+its gate describe the target, not the current tree.
 
 - **The gem is `uxid`.** Version 1.0.0 replaces the 0.2.x format and API
   entirely: a breaking release under the same gem name, not an upgrade path
   for 0.2.x identifiers.
-- **The corpus is the arbiter.** `conformance/` holds the corpus vendored
-  from uxid-ex at a release tag, its tag, commit and hash recorded in
+- **The corpus is the arbiter.** `conformance/` will hold the corpus
+  vendored from uxid-ex at a release tag, its tag, commit and hash recorded in
   `conformance/SOURCE.json`. The vendored files are never edited, and every
   case passes with no skip list: a case this port cannot pass is reported
   against uxid-ex with its evidence, never skipped or worked round here. An
@@ -145,7 +148,7 @@ runtime dependencies; Ruby 3.2 or later.
 ## Build & Test
 
 ```bash
-mise install                          # the Ruby that mise.toml pins
+mise install                          # the Ruby that mise.toml will pin
 mise exec -- bundle install           # the dev tools
 mise exec -- bundle exec rake test    # inner loop
 mise exec -- bundle exec rake         # full gate
