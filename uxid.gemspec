@@ -1,27 +1,33 @@
-require_relative "lib/uxid/version"
-here = File.expand_path "..", __FILE__
+# frozen_string_literal: true
+
+# The version file is evaluated inside a throwaway module rather than
+# required, so that loading the gemspec (Bundler does, in every process the
+# gate starts) does not load lib/ before the test run's coverage starts.
+version_file = File.join(__dir__, "lib/uxid/version.rb")
+version = Module.new.tap { |m| m.module_eval(File.read(version_file), version_file) }::UXID::VERSION
 
 Gem::Specification.new do |spec|
-  spec.name          = "uxid"
-  spec.version       = UXID::VERSION
-  spec.authors       = ["JohnnyT"]
-  spec.email         = ["ubergeek3141@gmail.com"]
+  spec.name = "uxid"
+  spec.version = version
+  spec.authors = ["JohnnyT"]
+  spec.email = ["ubergeek3141@gmail.com"]
 
-  spec.summary       = "Generates IDs like: cus_01EPEY1JMK and txn_01EPEY2P06TR1RTV07 (similar to Stripe identifiers)."
-  spec.description   = spec.summary
-  spec.homepage      = "https://github.com/riddler/uxid-rb"
-  spec.license       = "MIT"
-  spec.required_ruby_version = Gem::Requirement.new ">= 2.3.0"
+  spec.summary = "Prefixed, K-sortable identifiers, wire-compatible with the Elixir uxid."
+  spec.description = <<~DESCRIPTION.tr("\n", " ").strip
+    Generates and decodes prefixed, K-sortable identifiers a person can read,
+    copy and route back to their resource. Random, deterministic and monotonic
+    generation, decoding and validity checks, checked against the conformance
+    corpus of the Elixir reference implementation. No runtime dependencies.
+  DESCRIPTION
+  spec.homepage = "https://github.com/riddler/uxid-rb"
+  spec.license = "MIT"
+  spec.required_ruby_version = ">= 3.2"
 
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = spec.homepage
+  spec.metadata["changelog_uri"] = "#{spec.homepage}/blob/main/CHANGELOG.md"
+  spec.metadata["rubygems_mfa_required"] = "true"
 
-  # Specify which files should be added to the gem when it is released.
-  # The `git ls-files -z` loads the files in the RubyGem that have been added into git.
-  spec.files         = Dir.chdir here do
-    `git ls-files -z`.split("\x0").reject { |f| f.match %r{^(test|spec|features)/} }
-  end
-  spec.bindir        = "exe"
-  spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename f }
+  spec.files = Dir.glob("lib/**/*.rb", base: __dir__) + %w[README.md CHANGELOG.md LICENSE]
   spec.require_paths = ["lib"]
 end
