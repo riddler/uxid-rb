@@ -14,7 +14,7 @@ class ReleaseTaskTest < Minitest::Test
 
   VERSION = UXID::VERSION
   TAG = "v#{VERSION}".freeze
-  REPOSITORY = "example/uxid-rb"
+  REPOSITORY = "riddler/uxid-rb"
 
   # The variables GitHub Actions sets for release.yml on the push of tag.
   def release_workflow(tag)
@@ -68,6 +68,24 @@ class ReleaseTaskTest < Minitest::Test
     env = release_workflow(TAG)
     env["GITHUB_REF"] = "refs/heads/main"
     env["GITHUB_WORKFLOW_REF"] = "#{REPOSITORY}/.github/workflows/release.yml@refs/heads/main"
+
+    assert_refused(env)
+  end
+
+  # Mutation: build the expected GITHUB_WORKFLOW_REF from the environment's
+  # own GITHUB_REPOSITORY, and drop the GITHUB_REPOSITORY comparison.
+  def test_refuses_release_yml_in_another_repository
+    env = release_workflow(TAG)
+    env["GITHUB_REPOSITORY"] = "example/uxid-rb"
+    env["GITHUB_WORKFLOW_REF"] = "example/uxid-rb/.github/workflows/release.yml@refs/tags/#{TAG}"
+
+    assert_refused(env)
+  end
+
+  # Mutation: drop the GITHUB_REPOSITORY comparison from the guard.
+  def test_refuses_with_github_repository_unset
+    env = release_workflow(TAG)
+    env.delete("GITHUB_REPOSITORY")
 
     assert_refused(env)
   end
