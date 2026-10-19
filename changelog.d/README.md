@@ -65,8 +65,9 @@ deleted in the same commit.
 
 The prep (the version bump in `lib/uxid/version.rb`, the promoted section,
 the README's version pin and the deleted fragments) merges on its own, and
-then its merged commit is tagged `vX.Y.Z`; the release workflow,
-`.github/workflows/release.yml`, publishes on that tag push (CLAUDE.md,
-"Release preps"). Because the prep consumes every fragment, it merges last: a
-branch still holding an unmerged fragment when the prep lands waits for the
-next release.
+then its merged commit is tagged `vX.Y.Z`. The README's install line carries
+no pin yet: the first prep adds one, and each prep after it updates it. The
+release workflow, `.github/workflows/release.yml`, publishes on that tag push
+(CLAUDE.md, "Release preps"). Because the prep consumes every fragment, it
+merges last: a branch still holding an unmerged fragment when the prep lands
+waits for the next release.

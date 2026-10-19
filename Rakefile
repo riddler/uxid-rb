@@ -65,15 +65,20 @@ end
 #
 # Anywhere but that workflow, on the push of the tag naming UXID::VERSION, it
 # refuses before building anything: a person or an agent never publishes
-# from a checkout (CLAUDE.md, "Release preps").
+# from a checkout (CLAUDE.md, "Release preps"). The guard is a tripwire
+# against an accidental `rake release`, not a security boundary.
 module ReleaseTask
+  # The repository whose release.yml may publish the gem.
+  REPOSITORY = "riddler/uxid-rb"
+
   # Why the release task must not run under env (the process environment)
   # for the gem at version, or nil when it may: only GitHub Actions, on the
-  # push of the tag vVERSION, in this repository's release.yml.
+  # push of the tag vVERSION, in REPOSITORY's release.yml.
   def self.refusal(env, version)
     tag = "v#{version}"
-    workflow = "#{env["GITHUB_REPOSITORY"]}/.github/workflows/release.yml@refs/tags/#{tag}"
-    return if env["GITHUB_ACTIONS"] == "true" && env["GITHUB_REF"] == "refs/tags/#{tag}" &&
+    workflow = "#{REPOSITORY}/.github/workflows/release.yml@refs/tags/#{tag}"
+    return if env["GITHUB_ACTIONS"] == "true" && env["GITHUB_REPOSITORY"] == REPOSITORY &&
+              env["GITHUB_REF"] == "refs/tags/#{tag}" &&
               env["GITHUB_WORKFLOW_REF"] == workflow
 
     "release: runs only in .github/workflows/release.yml on the push of #{tag}; nothing was built or pushed"
