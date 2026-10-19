@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "digest"
 require "securerandom"
 
 module UXID
@@ -15,12 +16,28 @@ module UXID
 
     module_function
 
-    # @param request [Options::Resolved]
+    # @param request [Options::Resolved, Options::Deterministic]
     # @return [String] the id
     def generate(request)
-      body = body(request)
+      body = request.is_a?(Options::Deterministic) ? deterministic_body(request) : body(request)
       prefix = request.prefix
       prefix.nil? || prefix.empty? ? body : "#{prefix}#{request.delimiter}#{body}"
+    end
+
+    # The marker, then the first count x 5 bits of the SHA-256 of
+    # prefix || 0x00 || from || 0x00 || count, as count characters. The
+    # prefix and count are in the hash so that the same string under another
+    # prefix or at another size gives an unrelated body; case is not.
+    def deterministic_body(request)
+      alphabet = request.upper ? UPPER : LOWER
+      alphabet[MARKER] + encode_groups(hash_bits(request), request.count, alphabet)
+    end
+
+    # The digest's first count x 5 bits, as an Integer.
+    def hash_bits(request)
+      input = [utf8_bytes(:prefix, request.prefix.to_s), utf8_bytes(:from, request.from), request.count]
+      digest = Digest::SHA256.digest(input.pack("a*xa*xC"))
+      digest.unpack1("H*").to_i(16) >> ((digest.bytesize * 8) - (request.count * 5))
     end
 
     def body(request)
@@ -42,6 +59,18 @@ module UXID
       raise Error.new(:rand_width_mismatch,
                       "rand: must be exactly #{width} bytes for this call (the random field's width), " \
                       "got: #{rand.bytesize}")
+    end
+
+    # The string's UTF-8 bytes, transcoded from the string's own encoding. A
+    # string that is not valid in its encoding, or has no UTF-8 form (binary
+    # bytes above 0x7f), is refused.
+    def utf8_bytes(key, string)
+      utf8 = string.encode(Encoding::UTF_8)
+      return utf8.b if utf8.valid_encoding?
+
+      raise ArgumentError, "#{key}: must be valid text; this #{string.encoding} string has invalid bytes"
+    rescue EncodingError
+      raise ArgumentError, "#{key}: must be text with a UTF-8 form; this #{string.encoding} string has none"
     end
 
     # Standard time: 48 bits in 10 characters, the first holding 3 bits.

@@ -6,7 +6,7 @@ module UXID
   module Options
     DEFAULTS = {
       prefix: nil, size: :xl, rand_size: nil, compact_time: false, case: :lower,
-      delimiter: "_", time: nil, rand: nil, byte_source: nil
+      delimiter: "_", time: nil, rand: nil, byte_source: nil, from: nil
     }.freeze
 
     SIZES = {
@@ -19,6 +19,10 @@ module UXID
       xs: [0, 1], s: [2, 3], m: [5, 6], l: [7, 8], xl: [10, 10]
     }.freeze
 
+    # Hash characters per size in a deterministic body, which is the marker
+    # and then these characters.
+    HASH_CHARS = { xs: 9, s: 13, m: 17, l: 21, xl: 25 }.freeze
+
     MAX_RAND_BYTES = 10
     TIME_MAX = (2**48) - 1
 
@@ -26,17 +30,40 @@ module UXID
     # and the random field's width in bytes.
     Resolved = Data.define(:prefix, :delimiter, :upper, :compact_time, :millis, :width, :rand, :byte_source)
 
+    # What the encoder reads for a deterministic body: the checked options
+    # and the number of hash characters.
+    Deterministic = Data.define(:prefix, :delimiter, :upper, :from, :count)
+
     module_function
 
-    # @return [Resolved]
+    # @return [Resolved, Deterministic]
     def resolve(options)
       check_keys(options)
       options = DEFAULTS.merge(options)
       check_types(options)
+      options[:from].nil? ? time_based(options) : deterministic(options)
+    end
+
+    def time_based(options)
       Resolved.new(
         prefix: options[:prefix], delimiter: options[:delimiter], upper: upper?(options[:case]),
         compact_time: options[:compact_time], millis: millis_for(options[:time]), width: width(options),
         rand: options[:rand], byte_source: options[:byte_source]
+      )
+    end
+
+    # A deterministic body has no time field and no random field, so the
+    # options that shape those (time, compact_time, rand_size, byte_source)
+    # are not read; a fixed random field contradicts it and is refused.
+    def deterministic(options)
+      unless options[:rand].nil?
+        raise Error.new(:rand_with_from,
+                        "rand: and from: cannot be given together: a deterministic body has no random field")
+      end
+
+      Deterministic.new(
+        prefix: options[:prefix], delimiter: options[:delimiter], upper: upper?(options[:case]),
+        from: options[:from], count: HASH_CHARS.fetch(size_for(options[:size]))
       )
     end
 
@@ -55,7 +82,14 @@ module UXID
       check(options, :prefix, "a String or nil") { |value| value.nil? || value.is_a?(String) }
       check(options, :delimiter, "a non-empty String") { |value| value.is_a?(String) && !value.empty? }
       check(options, :compact_time, "true or false") { |value| [true, false].include?(value) }
+      check_body_sources(options)
+    end
+
+    # The options a body's bytes come from: a fixed random field, the string
+    # a deterministic body hashes, and the byte source.
+    def check_body_sources(options)
       check(options, :rand, "a String of bytes or nil") { |value| value.nil? || value.is_a?(String) }
+      check(options, :from, "a String or nil") { |value| value.nil? || value.is_a?(String) }
       check(options, :byte_source, "an object responding to call(count), or nil") do |value|
         value.nil? || value.respond_to?(:call)
       end

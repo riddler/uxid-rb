@@ -8,9 +8,14 @@ require_relative "uxid/encoder"
 # Prefixed, K-sortable identifiers, wire-compatible with the Elixir
 # reference implementation of uxid.
 module UXID
-  # Generates a time-based id: an optional prefix and delimiter, then a body
-  # of a time field and a random field in Crockford Base32, laid out as
-  # uxid-ex's wire-format spec defines it.
+  # Generates an id: an optional prefix and delimiter, then a body in
+  # Crockford Base32, laid out as uxid-ex's wire-format spec defines it. The
+  # body is time-based (a time field and a random field) unless :from is
+  # given, when it is deterministic: the marker character (z, or Z in an
+  # upper-case id) and then a SHA-256 hash of the prefix, the from string
+  # and the size, so the same arguments always give the same id. A
+  # deterministic id sorts after every time-based id with its prefix and
+  # case.
   #
   # Every option is a keyword argument; an option left out takes its default,
   # and an unknown one raises ArgumentError. The options whose default is nil
@@ -43,12 +48,19 @@ module UXID
   # @option options [#call, nil] :byte_source (nil) where the random field's
   #   bytes come from: any object whose call(count) returns a String of count
   #   bytes; nil is SecureRandom.random_bytes. Not called when :rand is given
+  # @option options [String, nil] :from (nil) the string a deterministic body
+  #   is the hash of, read as its UTF-8 bytes (a String in another encoding
+  #   is transcoded; one with invalid bytes, or binary bytes above 0x7f, is
+  #   refused). The prefix is hashed the same way. The body has the size's
+  #   standard length; :time, :compact_time, :rand_size and :byte_source do
+  #   not apply to it and are not read
   # @return [String] the id
   # @raise [UXID::Error] a refusal the wire format names, with its
   #   {UXID::Error#code}: :rand_size_too_large for a :rand_size above 10,
   #   :rand_width_mismatch for a :rand whose byte size is not the random
   #   width, :compact_time_out_of_range for a compact time whose first
-  #   character would be the deterministic marker
+  #   character would be the deterministic marker, :rand_with_from for a
+  #   :rand given with :from
   # @raise [ArgumentError] any other option outside the ones above
   #
   # @example
@@ -56,6 +68,8 @@ module UXID
   #   UXID.generate(prefix: "cus", size: :s)   # => "cus_01..." (14 body characters)
   #   UXID.generate(prefix: "usr", size: :xs, time: 1_700_000_000_000)
   #   # => "usr_01hf7yat00"
+  #   UXID.generate(prefix: "cus", from: "acme-corp", size: :s)
+  #   # => "cus_zt9vnyfd85bff0"
   def self.generate(**options)
     Encoder.generate(Options.resolve(options))
   end
