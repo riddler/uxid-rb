@@ -102,10 +102,10 @@ class GenerateOptionsTest < Minitest::Test
 
   # Sabotage: dropping the unknown-keyword check turns this red.
   def test_an_unknown_option_is_refused
-    error = assert_raises(ArgumentError) { UXID.generate(from: "x", monotonic: true) }
+    error = assert_raises(ArgumentError) { UXID.generate(seed: "x", monotonic: true) }
 
-    assert_equal "unknown keywords: :from, :monotonic", error.message
-    assert_equal "unknown keyword: :from", assert_raises(ArgumentError) { UXID.generate(from: "x") }.message
+    assert_equal "unknown keywords: :seed, :monotonic", error.message
+    assert_equal "unknown keyword: :seed", assert_raises(ArgumentError) { UXID.generate(seed: "x") }.message
   end
 
   # Sabotage: removing any one check below turns its row red.
@@ -113,7 +113,8 @@ class GenerateOptionsTest < Minitest::Test
     [
       { size: :huge }, { size: nil }, { case: :title }, { delimiter: "" }, { delimiter: nil },
       { prefix: :usr }, { rand_size: -1 }, { rand_size: 2.0 }, { time: -1 }, { time: 2**48 },
-      { time: 1.5 }, { rand: [1, 2] }, { compact_time: nil }, { byte_source: Object.new }
+      { time: 1.5 }, { rand: [1, 2] }, { compact_time: nil }, { byte_source: Object.new },
+      { from: :usr }, { from: 1 }, { from: "x", size: :huge }, { from: "x", case: :title }
     ].each do |options|
       error = assert_raises(ArgumentError, options.inspect) { UXID.generate(**options) }
 

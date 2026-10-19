@@ -4,9 +4,10 @@ require "test_helper"
 require "json"
 
 # A hand-picked subset of the conformance corpus at uxid-ex v2.10.0, its lines
-# copied byte for byte from conformance/encode.json and conformance/invalid.json
-# into test/fixtures/. The corpus runner, once the corpus is vendored under
-# conformance/, runs every case; these hold the generator to the cases until then.
+# copied byte for byte from conformance/encode.json, conformance/invalid.json
+# and (every line of it) conformance/deterministic.json into test/fixtures/.
+# The corpus runner, once the corpus is vendored under conformance/, runs
+# every case; these hold the generator to the cases until then.
 class CorpusSubsetTest < Minitest::Test
   FIXTURES = File.expand_path("fixtures", __dir__)
 
@@ -24,12 +25,20 @@ class CorpusSubsetTest < Minitest::Test
       case: input["case"],
       time: input["time"],
       rand_size: input["rand_size"],
-      rand: input["rand"] && [input["rand"]].pack("H*")
+      rand: input["rand"] && [input["rand"]].pack("H*"),
+      from: input["from"]
     }.compact
   end
 
   # Sabotage: swapping the lower- and upper-case alphabets turns every case red.
   cases("corpus_encode_subset.jsonl").each do |kase|
+    define_method("test_#{kase["id"]}") do
+      assert_equal kase["expected"], UXID.generate(**self.class.options(kase["input"])), kase["id"]
+    end
+  end
+
+  # Sabotage: leaving the size out of the hash input turns every case red.
+  cases("corpus_deterministic_subset.jsonl").each do |kase|
     define_method("test_#{kase["id"]}") do
       assert_equal kase["expected"], UXID.generate(**self.class.options(kase["input"])), kase["id"]
     end
@@ -61,6 +70,6 @@ class CorpusSubsetTest < Minitest::Test
   def test_the_refusal_subset_covers_every_refusal_this_generator_raises
     errors = self.class.cases("corpus_generate_refusal_subset.jsonl").to_set { |kase| kase["expected_error"] }
 
-    assert_equal %w[compact_time_out_of_range rand_size_too_large rand_width_mismatch].to_set, errors
+    assert_equal %w[compact_time_out_of_range rand_size_too_large rand_width_mismatch rand_with_from].to_set, errors
   end
 end
